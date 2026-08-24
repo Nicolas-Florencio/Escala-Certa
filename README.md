@@ -1,13 +1,13 @@
-# EscalaCerta - MVP API 🏥📅
+# EscalaCerta - MVP 📅
 
-**EscalaCerta** é um sistema projetado para facilitar a organização de escalas de plantão e folgas para equipes (hospitais, segurança, call center, etc.), eliminando o uso de planilhas e grupos de mensagens.
+**EscalaCerta** é um sistema projetado para facilitar a organização de escalas de plantão e folgas para equipes, eliminando o uso de planilhas e grupos de mensagens.
 
 Projeto desenvolvido para a disciplina de **Laboratório de Desenvolvimento Multiplataforma**.
 **Equipe:** Luan Thomazini Marques de Oliveira, Nicolas Florencio Alves, Emanuel Araujo de Oliveira.
 
 ---
 
-## 🚀 Funcionalidades do MVP (Backend)
+## 🚀 Funcionalidades do MVP
 A API suporta as operações essenciais do MVP, incluindo autenticação, gestão de escalas pelo gestor (Web) e solicitações via aplicativo (Mobile).
 
 ---
