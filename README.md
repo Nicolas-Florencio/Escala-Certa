@@ -12,6 +12,12 @@ A API suporta as operações essenciais do MVP, incluindo autenticação, gestã
 
 ---
 
+## 🎨 Protótipo da Interface
+
+As interfaces do sistema **EscalaCerta** foram prototipadas no Figma, contemplando as principais telas previstas para o MVP nas versões Web e Mobile.
+Figma: https://www.figma.com/design/u4gELnXDHcFvwlTcvXYGtr/Gest%C3%A3o-de-Plant%C3%B5es?m=auto&t=KC6SxUlVKbT4KCcf-1
+
+---
 ## 📡 Principais Endpoints e Resultados Esperados
 
 ### 1. Autenticação e Cadastro
