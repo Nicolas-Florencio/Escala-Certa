@@ -1,56 +1,63 @@
-# Welcome to your Expo app 👋
+# EscalaCerta Mobile 📱
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicativo mobile do projeto **EscalaCerta**, desenvolvido para facilitar o acompanhamento de plantões e solicitações dos colaboradores.
 
-## Get started
+Esta aplicação representa a interface utilizada pelo **colaborador**, permitindo visualizar sua escala e realizar solicitações relacionadas aos plantões.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 🎯 Objetivo
 
-2. Start the app
+O aplicativo tem como objetivo oferecer ao colaborador uma forma simples e prática de acompanhar sua rotina de trabalho sem depender de planilhas ou grupos de mensagens.
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 🚀 Funcionalidades
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### 🔐 Login
+Permite que o colaborador acesse o sistema utilizando suas credenciais.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### 📅 Visualização de Plantões
+O colaborador pode visualizar os plantões nos quais está escalado, incluindo informações como:
 
-## Get a fresh project
+- Data do plantão
+- Turno
+- Situação do plantão
 
-When you're ready, run:
+### 🔄 Solicitação de Troca
+Permite solicitar a troca de um plantão com outro colaborador.
 
-```bash
-npm run reset-project
+A solicitação fica pendente até ser analisada e aprovada pelo responsável pela gestão da escala.
+
+### 🏖️ Solicitação de Folga
+O colaborador pode solicitar uma folga para uma determinada data.
+
+A solicitação também ficará disponível para análise do gestor.
+
+---
+
+## 🛠️ Tecnologias Utilizadas
+
+- React Native
+- Expo
+- Expo Router
+- TypeScript
+- Figma
+
+---
+
+## 📂 Estrutura Inicial
+
 ```
+mobile/
+├── src/
+│   └── app/
+│       ├── _layout.tsx
+│       ├── index.tsx
+│       └── dashboard.tsx
+├── assets/
+├── package.json
+├── app.json
+└── tsconfig.json
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+   #
