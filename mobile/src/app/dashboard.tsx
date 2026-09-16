@@ -120,11 +120,10 @@ export default function Dashboard() {
               {/* Opções principais do menu */}
               <View style={styles.menuGroup}>
                 <Text style={styles.menuItem}>Dashboard</Text>
-                <Text style={styles.menuItem}>Gestão de escala</Text>
-                <Text style={styles.menuItem}>Criar plantão</Text>
-                <Text style={styles.menuItem}>Colaboradores</Text>
                 <Text style={styles.menuItem}>Solicitações</Text>
-                <Text style={styles.menuItem}>Folgas</Text>
+                <Pressable onPress={() => router.push('/folgas')}>
+                  <Text style={styles.menuItem}>Folgas</Text>
+                </Pressable>
               </View>
             </View>
 

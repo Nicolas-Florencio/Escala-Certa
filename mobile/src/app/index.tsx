@@ -19,7 +19,7 @@ export default function Login() {
   // Função responsável por validar o login
   function entrar() {
     // Login temporário para teste
-    if (email === 'admin@email.com' && senha === '1234') {
+    if (email === 'admin' && senha === '1234') {
       // Remove mensagem de erro caso esteja aparecendo
       setErro(false);
 

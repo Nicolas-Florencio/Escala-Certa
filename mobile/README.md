@@ -60,4 +60,3 @@ mobile/
 ├── app.json
 └── tsconfig.json
 
-   #
