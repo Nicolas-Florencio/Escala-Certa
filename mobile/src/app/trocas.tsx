@@ -10,18 +10,20 @@ import {
   View,
 } from 'react-native';
 
-export default function Folgas() {
+export default function Trocas() {
   // Controle do menu lateral
   const [menuAberto, setMenuAberto] = useState(false);
 
-  // Data informada pelo colaborador
-  const [dataFolga, setDataFolga] = useState('10/09/2026');
+  // Motivo informado pelo colaborador
+  const [motivo, setMotivo] = useState(
+    'Conforme conversado com o Nicolas, trocaremos o plantão desta semana.'
+  );
 
-  // Solicitação temporária
-  function solicitarFolga() {
+  // Solicitação temporária de troca
+  function solicitarTroca() {
     Alert.alert(
       'Solicitação enviada',
-      `Folga solicitada para ${dataFolga}.`
+      'A solicitação de troca foi registrada.'
     );
   }
 
@@ -33,54 +35,66 @@ export default function Folgas() {
           <Text style={styles.menuIcon}>☰</Text>
         </Pressable>
 
-        <Text style={styles.title}>Solicitar folga</Text>
+        <Text style={styles.title}>Solicitação de troca</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Informações disponíveis */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Informar Folga</Text>
-
-          <Text style={styles.available}>
-            Folgas disponíveis: 1
+          <Text style={styles.cardTitle}>
+            Solicitação de Troca
           </Text>
 
-          <Text style={styles.label}>
-            Plantão que gerou a folga
-          </Text>
+          {/* Plantão atual */}
+          <Text style={styles.sectionLabel}>Meu plantão</Text>
 
           <View style={styles.infoBox}>
-            <Text style={styles.infoDate}>
-              06/09/2026 — Domingo
-            </Text>
+            <Text style={styles.smallLabel}>Dia</Text>
 
-            <Text style={styles.infoText}>
-              Plantão realizado
+            <Text style={styles.infoValue}>
+              13/09/2026 — Domingo
             </Text>
           </View>
 
-          <Text style={styles.label}>
-            Data desejada para a folga
-          </Text>
+          {/* Colaborador selecionado */}
+          <Text style={styles.sectionLabel}>Trocar para</Text>
 
-          {/* Campo temporário até adicionarmos calendário */}
+          <View style={styles.infoBox}>
+            <Text style={styles.infoValue}>
+              Nicolas Alves
+            </Text>
+          </View>
+
+          {/* Motivo */}
+          <Text style={styles.sectionLabel}>Motivo</Text>
+
           <TextInput
-            style={styles.input}
-            value={dataFolga}
-            onChangeText={setDataFolga}
-            placeholder="DD/MM/AAAA"
-            keyboardType="numeric"
+            style={styles.textArea}
+            value={motivo}
+            onChangeText={setMotivo}
+            multiline
+            numberOfLines={5}
+            textAlignVertical="top"
+            placeholder="Informe o motivo da troca"
           />
 
-          {/* Botão para solicitar */}
-          <Pressable
-            style={styles.button}
-            onPress={solicitarFolga}
-          >
-            <Text style={styles.buttonText}>
-              Solicitar Folga
-            </Text>
-          </Pressable>
+          {/* Botões */}
+          <View style={styles.buttonRow}>
+            <Pressable
+              style={styles.cancelButton}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.cancelText}>Cancelar</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.confirmButton}
+              onPress={solicitarTroca}
+            >
+              <Text style={styles.confirmText}>
+                Solicitar troca
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </ScrollView>
 
@@ -106,8 +120,8 @@ export default function Folgas() {
 
               <View style={styles.menuGroup}>
                 <MenuItem texto="Dashboard" rota="/dashboard" />
-                <MenuItem texto="Minha escala" rota="/escala" />
-                <MenuItem texto="Solicitar troca" rota="/trocas" />
+                <MenuItem texto="Escala" rota="/escala" />
+                <MenuItem texto="Solicitar folga" rota="/folgas" />
               </View>
             </View>
 
@@ -126,7 +140,7 @@ function MenuItem({
   rota,
 }: {
   texto: string;
-  rota: Href;
+  rota: Href
 }) {
   return (
     <Pressable onPress={() => router.push(rota)}>
@@ -156,7 +170,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: '600',
   },
 
@@ -171,61 +185,75 @@ const styles = StyleSheet.create({
   },
 
   cardTitle: {
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: '600',
-    marginBottom: 20,
+    marginBottom: 28,
   },
 
-  available: {
+  sectionLabel: {
     fontSize: 16,
-    marginBottom: 26,
-  },
-
-  label: {
-    fontSize: 14,
-    color: '#555555',
+    fontWeight: '600',
     marginBottom: 8,
-    marginTop: 8,
+    marginTop: 10,
   },
 
   infoBox: {
     backgroundColor: '#F0F0F0',
-    borderRadius: 8,
     padding: 15,
-    marginBottom: 20,
+    borderRadius: 8,
+    marginBottom: 12,
   },
 
-  infoDate: {
-    fontSize: 16,
-    fontWeight: '600',
+  smallLabel: {
+    fontSize: 12,
+    color: '#777777',
     marginBottom: 4,
   },
 
-  infoText: {
-    fontSize: 14,
+  infoValue: {
+    fontSize: 16,
   },
 
-  input: {
-    height: 52,
+  textArea: {
+    minHeight: 120,
     borderWidth: 1,
     borderColor: '#CCCCCC',
     borderRadius: 8,
-    paddingHorizontal: 14,
-    fontSize: 16,
+    padding: 14,
+    fontSize: 15,
   },
 
-  button: {
-    backgroundColor: '#18B663',
-    borderRadius: 8,
-    paddingVertical: 15,
-    alignItems: 'center',
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
     marginTop: 25,
   },
 
-  buttonText: {
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 15,
+    borderWidth: 1,
+    borderColor: '#BBBBBB',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 15,
+    backgroundColor: '#18B663',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+
+  cancelText: {
+    fontSize: 15,
+  },
+
+  confirmText: {
     color: '#FFFFFF',
-    fontSize: 16,
     fontWeight: '600',
+    fontSize: 15,
   },
 
   overlay: {
@@ -236,9 +264,9 @@ const styles = StyleSheet.create({
 
   sidebar: {
     position: 'absolute',
-    left: 0,
     top: 0,
     bottom: 0,
+    left: 0,
     width: '78%',
     maxWidth: 310,
     backgroundColor: '#FFFFFF',

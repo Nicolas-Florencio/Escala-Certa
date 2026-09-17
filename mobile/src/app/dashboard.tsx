@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Href, router } from 'expo-router';
 import { useState } from 'react';
 
 import {
@@ -17,6 +17,20 @@ export default function Dashboard() {
   function login() {
     router.replace('/');
   }
+
+  function MenuItem({
+      texto,
+      rota,
+    }: {
+      texto: string;
+      rota: Href;
+    }) {
+      return (
+        <Pressable onPress={() => router.push(rota)}>
+          <Text style={styles.menuItem}>{texto}</Text>
+        </Pressable>
+      );
+}
 
   return (
     // Container principal da dashboard
@@ -119,11 +133,10 @@ export default function Dashboard() {
 
               {/* Opções principais do menu */}
               <View style={styles.menuGroup}>
-                <Text style={styles.menuItem}>Dashboard</Text>
-                <Text style={styles.menuItem}>Solicitações</Text>
-                <Pressable onPress={() => router.push('/folgas')}>
-                  <Text style={styles.menuItem}>Folgas</Text>
-                </Pressable>
+                <MenuItem texto="Dashboard" rota="/dashboard" />
+                <MenuItem texto="Escala" rota="/escala" />
+                <MenuItem texto="Solicitações" rota="/trocas" />
+                <MenuItem texto="Folgas" rota="/folgas" />
               </View>
             </View>
 
