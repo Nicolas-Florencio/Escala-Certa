@@ -1,43 +1,145 @@
 import { Href, router } from 'expo-router';
-import { useState } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import { useEffect, useState } from 'react';
 
 import {
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
 } from 'react-native';
 
+type Usuario = {
+  id: number;
+  nome: string;
+  email: string;
+  funcao: string;
+  perfil: 'GESTOR' | 'COLABORADOR';
+};
+
+type Plantao = {
+  id: number;
+  data: string;
+  turno: 'Manhã' | 'Tarde' | 'Noturno';
+};
+
+type Folga = {
+  id: number;
+  data: string;
+  motivo?: string;
+  status: 'PENDENTE' | 'APROVADO' | 'RECUSADO';
+};
+
+type MinhaEscalaResponse = {
+  plantoes: Plantao[];
+  folgas: Folga[];
+};
+
+type Troca = {
+  id: number;
+  status: string;
+};
+
+import { COLORS } from '@/constants/colors';
+import { apiRequest } from '@/services/api';
+
 export default function Dashboard() {
-  // Estado responsável por abrir e fechar o menu lateral
+  // Controle do menu lateral
   const [menuAberto, setMenuAberto] = useState(false);
 
-  // Função para voltar à tela de login
-  function login() {
+  // Dados do usuário autenticado
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
+
+  // Dados recebidos da API
+  const [plantoes, setPlantoes] = useState<Plantao[]>([]);
+  const [folgas, setFolgas] = useState<Folga[]>([]);
+  const [trocasPendentes, setTrocasPendentes] = useState<Troca[]>([]);
+
+  // Estados da requisição
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
+
+  // Carrega os dados ao abrir a dashboard
+  useEffect(() => {
+    carregarDashboard();
+  }, []);
+
+  async function carregarDashboard() {
+    try {
+      setCarregando(true);
+      setErro('');
+
+      // Recupera o usuário salvo durante o login
+      const usuarioSalvo =
+        await SecureStore.getItemAsync('usuario');
+
+      if (usuarioSalvo) {
+        setUsuario(JSON.parse(usuarioSalvo));
+      }
+
+      // Busca escala e trocas pendentes ao mesmo tempo
+      const [escala, trocas] = await Promise.all([
+        apiRequest('/escalas/me'),
+        apiRequest('/trocas?status=PENDENTE'),
+      ]);
+
+      const dadosEscala =
+        escala as MinhaEscalaResponse;
+
+      setPlantoes(dadosEscala.plantoes ?? []);
+      setFolgas(dadosEscala.folgas ?? []);
+
+      setTrocasPendentes(
+        Array.isArray(trocas) ? trocas : []
+      );
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar a dashboard.'
+      );
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  // Remove os dados de autenticação e volta ao login
+  async function logout() {
+    await SecureStore.deleteItemAsync('token');
+    await SecureStore.deleteItemAsync('usuario');
+
     router.replace('/');
   }
 
-  function MenuItem({
-      texto,
-      rota,
-    }: {
-      texto: string;
-      rota: Href;
-    }) {
-      return (
-        <Pressable onPress={() => router.push(rota)}>
-          <Text style={styles.menuItem}>{texto}</Text>
-        </Pressable>
-      );
-}
+    // Folgas ainda aguardando decisão
+  const folgasPendentes = folgas.filter(
+    (folga) => folga.status === 'PENDENTE'
+  );
+
+  // Soma trocas e folgas pendentes
+  const solicitacoesPendentes =
+    trocasPendentes.length + folgasPendentes.length;
+
+  // Obtém a data atual no formato utilizado pela API
+  const hoje = new Date();
+
+  const dataHoje = [
+    hoje.getFullYear(),
+    String(hoje.getMonth() + 1).padStart(2, '0'),
+    String(hoje.getDate()).padStart(2, '0'),
+  ].join('-');
+
+  // Seleciona somente os próximos plantões
+  const proximosPlantoes = [...plantoes]
+    .filter((plantao) => plantao.data >= dataHoje)
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .slice(0, 2);
 
   return (
-    // Container principal da dashboard
     <View style={styles.container}>
-      {/* Cabeçalho da tela */}
       <View style={styles.header}>
-        {/* Botão que abre o menu lateral */}
         <Pressable
           style={styles.menuButton}
           onPress={() => setMenuAberto(true)}
@@ -45,70 +147,107 @@ export default function Dashboard() {
           <Text style={styles.menuIcon}>☰</Text>
         </Pressable>
 
-        {/* Título da página */}
-        <Text style={styles.pageTitle}>Dashboard</Text>
+        <View>
+          <Text style={styles.pageTitle}>Dashboard</Text>
+          <Text style={styles.headerSubtitle}>Resumo da sua escala</Text>
+        </View>
       </View>
 
-      {/* Área com rolagem da dashboard */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Título da seção de resumo */}
+        <View style={styles.welcomeArea}>
+          <Text style={styles.welcomeTitle}>Olá, {usuario?.nome?.split(' ')[0] ?? 'colaborador'}!</Text>
+          <Text style={styles.welcomeText}>
+            Confira seus próximos plantões e solicitações.
+          </Text>
+          
+        </View>
+
+{carregando && (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator
+      size="small"
+      color={COLORS.primary}
+    />
+
+    <Text style={styles.loadingText}>
+      Carregando informações...
+    </Text>
+  </View>
+)}
+
+{erro !== '' && (
+  <View style={styles.errorBox}>
+    <Text style={styles.errorTitle}>
+      Não foi possível carregar os dados
+    </Text>
+
+    <Text style={styles.errorText}>
+      {erro}
+    </Text>
+
+    <Pressable
+      style={styles.retryButton}
+      onPress={carregarDashboard}
+    >
+      <Text style={styles.retryText}>
+        Tentar novamente
+      </Text>
+    </Pressable>
+  </View>
+)}
+
         <Text style={styles.sectionTitle}>Resumo</Text>
 
-        {/* Card com quantidade de plantões */}
-        <DashboardCard
-          title="Plantões"
-          value="8"
-          description="Plantões cadastrados"
-        />
+        <View style={styles.summaryGrid}>
+          <DashboardCard
+            title="Plantões"
+            value={String(plantoes.length)}
+            description="Cadastrados"
+          />
 
-        {/* Card com solicitações de troca */}
-        <DashboardCard
-          title="Solicitações de troca"
-          value="3"
-          description="Solicitações pendentes"
-        />
+          <DashboardCard
+            title="Solicitações"
+            value={String(solicitacoesPendentes)}
+            description="Pendentes"
+          />
 
-        {/* Card com quantidade de folgas */}
-        <DashboardCard
-          title="Folgas"
-          value="2"
-          description="Folgas cadastradas"
-        />
+          <DashboardCard
+            title="Folgas"
+            value={String(folgas.length)}
+            description="Solicitadas"
+          />
+        </View>
 
-        {/* Título da seção de próximos plantões */}
+        <Text style={styles.sectionTitle}>Acesso rápido</Text>
+
+        <View style={styles.quickGrid}>
+          <QuickAction label="Minha escala" rota="/escala" />
+          <QuickAction label="Solicitar folga" rota="/folgas" />
+          <QuickAction label="Solicitar troca" rota="/trocas" />
+        </View>
+
         <Text style={styles.sectionTitle}>Próximos plantões</Text>
 
-        {/* Primeiro plantão */}
-        <View style={styles.shiftCard}>
-          <View>
-            <Text style={styles.shiftLabel}>Data</Text>
-            <Text style={styles.shiftValue}>20/09/2026</Text>
-          </View>
-
-          <View>
-            <Text style={styles.shiftLabel}>Colaborador</Text>
-            <Text style={styles.shiftValue}>Nicolas Alves</Text>
-          </View>
-        </View>
-
-        {/* Segundo plantão */}
-        <View style={styles.shiftCard}>
-          <View>
-            <Text style={styles.shiftLabel}>Data</Text>
-            <Text style={styles.shiftValue}>27/09/2026</Text>
-          </View>
-
-          <View>
-            <Text style={styles.shiftLabel}>Colaborador</Text>
-            <Text style={styles.shiftValue}>Emanuel Oliveira</Text>
-          </View>
-        </View>
+          {proximosPlantoes.length > 0 ? (
+            proximosPlantoes.map((plantao) => (
+              <ShiftCard
+                key={plantao.id}
+                data={plantao.data}
+                turno={plantao.turno}
+              />
+            ))
+          ) : (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>
+                Nenhum próximo plantão encontrado.
+              </Text>
+            </View>
+          )}
       </ScrollView>
 
-      {/* Menu lateral exibido somente quando menuAberto for true */}
       {menuAberto && (
         <>
           <Pressable
@@ -116,37 +255,34 @@ export default function Dashboard() {
             onPress={() => setMenuAberto(false)}
           />
 
-          {/* Menu lateral */}
           <View style={styles.sidebar}>
             <View>
-              {/* Cabeçalho do menu lateral */}
               <View style={styles.sidebarHeader}>
-                <Text style={styles.sidebarTitle}>
-                  Gestão de Plantões
-                </Text>
+                <View>
+                  <Text style={styles.sidebarBrand}>
+                    Escala<Text style={styles.sidebarBrandBlue}>Certa</Text>
+                  </Text>
+                  <Text style={styles.sidebarSubtitle}>Gestão de Plantões</Text>
+                </View>
 
-                {/* Botão para fechar o menu */}
                 <Pressable onPress={() => setMenuAberto(false)}>
                   <Text style={styles.closeButton}>✕</Text>
                 </Pressable>
               </View>
 
-              {/* Opções principais do menu */}
               <View style={styles.menuGroup}>
-                <MenuItem texto="Dashboard" rota="/dashboard" />
+                <MenuItem texto="Dashboard" rota="/dashboard" ativo />
                 <MenuItem texto="Escala" rota="/escala" />
                 <MenuItem texto="Solicitações" rota="/trocas" />
                 <MenuItem texto="Folgas" rota="/folgas" />
               </View>
             </View>
 
-            {/* Opções inferiores do menu */}
             <View>
               <Text style={styles.menuItem}>Configurações</Text>
 
-              {/* Botão para sair e voltar ao login */}
-              <Pressable onPress={login}>
-                <Text style={styles.menuItem}>Sair</Text>
+              <Pressable onPress={logout}>
+                <Text style={styles.logout}>Sair</Text>
               </Pressable>
             </View>
           </View>
@@ -156,170 +292,413 @@ export default function Dashboard() {
   );
 }
 
-// Define os dados que cada card deve receber
-type DashboardCardProps = {
-  title: string;
-  value: string;
-  description: string;
-};
+function MenuItem({
+  texto,
+  rota,
+  ativo = false,
+}: {
+  texto: string;
+  rota: Href;
+  ativo?: boolean;
+}) {
+  return (
+    <Pressable
+      style={[styles.menuItemButton, ativo && styles.menuItemActive]}
+      onPress={() => router.push(rota)}
+    >
+      <Text style={[styles.menuItem, ativo && styles.menuItemActiveText]}>
+        {texto}
+      </Text>
+    </Pressable>
+  );
+}
 
-// Componente reutilizável para os cards do resumo
 function DashboardCard({
   title,
   value,
   description,
-}: DashboardCardProps) {
+}: {
+  title: string;
+  value: string;
+  description: string;
+}) {
   return (
     <View style={styles.card}>
-      <View>
-        <Text style={styles.cardTitle}>{title}</Text>
-
-        <Text style={styles.cardDescription}>
-          {description}
-        </Text>
-      </View>
-
+      <Text style={styles.cardTitle}>{title}</Text>
       <Text style={styles.cardValue}>{value}</Text>
+      <Text style={styles.cardDescription}>{description}</Text>
     </View>
   );
 }
 
-// Estilização
+function QuickAction({ label, rota }: { label: string; rota: Href }) {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.quickAction,
+        pressed && styles.quickActionPressed,
+      ]}
+      onPress={() => router.push(rota)}
+    >
+      <View style={styles.quickIcon}>
+        <Text style={styles.quickIconText}>→</Text>
+      </View>
+      <Text style={styles.quickText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function ShiftCard({
+  data,
+  turno,
+}: {
+  data: string;
+  turno: string;
+}) {
+  // Converte AAAA-MM-DD para os elementos visuais do card
+  const [ano, mes, dia] = data.split('-');
+
+  const meses = [
+    'JAN',
+    'FEV',
+    'MAR',
+    'ABR',
+    'MAI',
+    'JUN',
+    'JUL',
+    'AGO',
+    'SET',
+    'OUT',
+    'NOV',
+    'DEZ',
+  ];
+
+  const mesTexto = meses[Number(mes) - 1];
+
+  return (
+    <View style={styles.shiftCard}>
+      <View style={styles.dateBadge}>
+        <Text style={styles.dateBadgeDay}>
+          {dia}
+        </Text>
+
+        <Text style={styles.dateBadgeMonth}>
+          {mesTexto}
+        </Text>
+      </View>
+
+      <View style={styles.shiftInfo}>
+        <Text style={styles.shiftName}>
+          Plantão
+        </Text>
+
+        <Text style={styles.shiftTime}>
+          {turno} • {dia}/{mes}/{ano}
+        </Text>
+      </View>
+
+      <Text style={styles.shiftArrow}>›</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.background,
   },
-
   header: {
-    height: 90,
+    minHeight: 92,
     paddingTop: 38,
     paddingHorizontal: 20,
+    paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    gap: 16,
+    backgroundColor: COLORS.card,
+    gap: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-
   menuButton: {
     width: 42,
     height: 42,
+    borderRadius: 10,
+    backgroundColor: COLORS.muted,
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   menuIcon: {
-    fontSize: 28,
+    fontSize: 24,
+    color: COLORS.text,
   },
-
   pageTitle: {
-    fontSize: 22,
-    fontWeight: '600',
+    fontSize: 21,
+    fontWeight: '700',
+    color: COLORS.text,
   },
-
+  headerSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
   },
-
+  welcomeArea: {
+    marginBottom: 24,
+  },
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  welcomeText: {
+    marginTop: 4,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 14,
+    fontSize: 17,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 12,
     marginTop: 8,
   },
-
-  card: {
-    width: '100%',
-    minHeight: 110,
-    backgroundColor: '#18B663',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 14,
+  summaryGrid: {
     flexDirection: 'row',
+    gap: 10,
+    marginBottom: 22,
+  },
+  card: {
+    flex: 1,
+    minHeight: 115,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    padding: 14,
     justifyContent: 'space-between',
+  },
+  cardTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  cardValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  cardDescription: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  quickGrid: {
+    gap: 10,
+    marginBottom: 24,
+  },
+  quickAction: {
+    minHeight: 58,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  quickActionPressed: {
+    backgroundColor: '#EFF6FF',
+  },
+  quickIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickIconText: {
+    color: COLORS.primary,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  quickText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  shiftCard: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-
-  cardTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '600',
-    marginBottom: 6,
+  dateBadge: {
+    width: 50,
+    height: 54,
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
-  cardDescription: {
-    color: '#FFFFFF',
-    fontSize: 13,
+  dateBadgeDay: {
+    color: COLORS.primaryDark,
+    fontWeight: '800',
+    fontSize: 18,
   },
-
-  cardValue: {
-    color: '#FFFFFF',
-    fontSize: 32,
+  dateBadgeMonth: {
+    color: COLORS.primary,
     fontWeight: '700',
+    fontSize: 10,
   },
-
-  shiftCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 18,
-    marginBottom: 12,
-    gap: 16,
+  shiftInfo: {
+    flex: 1,
+    marginLeft: 14,
   },
-
-  shiftLabel: {
-    color: '#777777',
+  shiftName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  shiftTime: {
+    marginTop: 4,
     fontSize: 12,
-    marginBottom: 3,
+    color: COLORS.textSecondary,
   },
-
-  shiftValue: {
-    fontSize: 16,
-    fontWeight: '500',
+  shiftArrow: {
+    fontSize: 28,
+    color: COLORS.textSecondary,
   },
-
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: 'rgba(15, 23, 42, 0.40)',
     zIndex: 1,
   },
-
   sidebar: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     left: 0,
-    width: '78%',
+    width: '80%',
     maxWidth: 310,
-    backgroundColor: '#FFFFFF',
-    paddingTop: 50,
-    paddingHorizontal: 24,
-    paddingBottom: 30,
+    backgroundColor: COLORS.card,
+    paddingTop: 54,
+    paddingHorizontal: 22,
+    paddingBottom: 28,
     justifyContent: 'space-between',
     zIndex: 2,
   },
-
   sidebarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-
-  sidebarTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+  sidebarBrand: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.text,
   },
-
+  sidebarBrandBlue: {
+    color: COLORS.primary,
+  },
+  sidebarSubtitle: {
+    marginTop: 3,
+    color: COLORS.textSecondary,
+    fontSize: 12,
+  },
   closeButton: {
     fontSize: 22,
+    color: COLORS.textSecondary,
   },
-
   menuGroup: {
-    marginTop: 45,
+    marginTop: 38,
+    gap: 6,
   },
-
+  menuItemButton: {
+    borderRadius: 10,
+  },
+  menuItemActive: {
+    backgroundColor: '#EFF6FF',
+  },
   menuItem: {
-    fontSize: 16,
-    marginBottom: 26,
+    fontSize: 15,
+    color: COLORS.text,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
   },
+  menuItemActiveText: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  logout: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.error,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  loadingContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8,
+  marginBottom: 18,
+},
+
+loadingText: {
+  color: COLORS.textSecondary,
+  fontSize: 13,
+},
+
+errorBox: {
+  backgroundColor: '#FEF2F2',
+  borderWidth: 1,
+  borderColor: '#FECACA',
+  borderRadius: 12,
+  padding: 14,
+  marginBottom: 18,
+},
+
+errorTitle: {
+  color: COLORS.error,
+  fontWeight: '700',
+  fontSize: 14,
+},
+
+errorText: {
+  color: '#991B1B',
+  fontSize: 12,
+  marginTop: 4,
+},
+
+retryButton: {
+  alignSelf: 'flex-start',
+  marginTop: 10,
+},
+
+retryText: {
+  color: COLORS.primary,
+  fontWeight: '700',
+  fontSize: 13,
+},
+
+emptyCard: {
+  backgroundColor: COLORS.card,
+  borderWidth: 1,
+  borderColor: COLORS.border,
+  borderRadius: 12,
+  padding: 18,
+},
+
+emptyText: {
+  color: COLORS.textSecondary,
+  fontSize: 13,
+  textAlign: 'center',
+},
 });

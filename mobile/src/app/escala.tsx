@@ -1,6 +1,8 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { Href, router } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,149 +10,426 @@ import {
   View,
 } from 'react-native';
 
-type DiaCalendario = {
-  dia: string;
-  foraDoMes?: boolean;
-  evento?: string;
-  tipo?: 'plantao' | 'folga';
+import { COLORS } from '@/constants/colors';
+import { apiRequest } from '@/services/api';
+
+type Plantao = {
+  id: number;
+  data: string;
+  turno: 'Manhã' | 'Tarde';
 };
 
-const dias: DiaCalendario[] = [
-  { dia: '30', foraDoMes: true },
-  { dia: '31', foraDoMes: true },
-  { dia: '1' },
-  { dia: '2' },
-  { dia: '3' },
-  { dia: '4' },
-  { dia: '5' },
+type Folga = {
+  id: number;
+  data: string;
+  motivo?: string;
+  status: 'PENDENTE' | 'APROVADO' | 'RECUSADO';
+};
 
-  { dia: '6', evento: 'Plantão', tipo: 'plantao' },
-  { dia: '7', evento: 'Plantão', tipo: 'plantao' },
-  { dia: '8' },
-  { dia: '9' },
-  { dia: '10' },
-  { dia: '11', evento: 'Folga', tipo: 'folga' },
-  { dia: '12', evento: 'Folga', tipo: 'folga' },
+type MinhaEscalaResponse = {
+  plantoes: Plantao[];
+  folgas: Folga[];
+};
 
-  { dia: '13', evento: 'Plantão', tipo: 'plantao' },
-  { dia: '14' },
-  { dia: '15' },
-  { dia: '16' },
-  { dia: '17', evento: 'Folga', tipo: 'folga' },
-  { dia: '18' },
-  { dia: '19' },
+type EventoCalendario = {
+  texto: string;
+  tipo: 'plantao' | 'folga' | 'pendente';
+};
 
-  { dia: '20', evento: 'Plantão', tipo: 'plantao' },
-  { dia: '21' },
-  { dia: '22' },
-  { dia: '23' },
-  { dia: '24' },
-  { dia: '25' },
-  { dia: '26', evento: 'Folga', tipo: 'folga' },
-
-  { dia: '27', evento: 'Plantão', tipo: 'plantao' },
-  { dia: '28' },
-  { dia: '29' },
-  { dia: '30' },
-  { dia: '1', foraDoMes: true },
-  { dia: '2', foraDoMes: true },
-  { dia: '3', foraDoMes: true },
-];
+type DiaCalendario = {
+  dia: number;
+  data: string;
+  foraDoMes: boolean;
+  eventos: EventoCalendario[];
+};
 
 const semana = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
 export default function Escala() {
-  // Estado responsável pelo menu lateral
   const [menuAberto, setMenuAberto] = useState(false);
+
+  // Dados recebidos da API
+  const [plantoes, setPlantoes] = useState<Plantao[]>([]);
+  const [folgas, setFolgas] = useState<Folga[]>([]);
+
+  // Estados da requisição
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
+
+  // Mês exibido no calendário
+  const hoje = new Date();
+
+  const [mesAtual, setMesAtual] = useState(
+    hoje.getMonth()
+  );
+
+  const [anoAtual, setAnoAtual] = useState(
+    hoje.getFullYear()
+  );
+
+  // Recarrega a escala sempre que o mês for alterado
+  useEffect(() => {
+    carregarEscala();
+  }, [mesAtual, anoAtual]);
+
+  async function carregarEscala() {
+    try {
+      setCarregando(true);
+      setErro('');
+
+      const primeiroDia =
+        `${anoAtual}-${String(mesAtual + 1).padStart(2, '0')}-01`;
+
+      const ultimoDiaMes = new Date(
+        anoAtual,
+        mesAtual + 1,
+        0
+      ).getDate();
+
+      const ultimoDia =
+        `${anoAtual}-${String(mesAtual + 1).padStart(2, '0')}-${String(
+          ultimoDiaMes
+        ).padStart(2, '0')}`;
+
+      const data = await apiRequest(
+        `/escalas/me?de=${primeiroDia}&ate=${ultimoDia}`
+      );
+
+      const escala = data as MinhaEscalaResponse;
+
+      setPlantoes(escala.plantoes ?? []);
+      setFolgas(escala.folgas ?? []);
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar a escala.'
+      );
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  // Navegação entre os meses
+  function mesAnterior() {
+    if (mesAtual === 0) {
+      setMesAtual(11);
+      setAnoAtual((ano) => ano - 1);
+      return;
+    }
+
+    setMesAtual((mes) => mes - 1);
+  }
+
+  function proximoMes() {
+    if (mesAtual === 11) {
+      setMesAtual(0);
+      setAnoAtual((ano) => ano + 1);
+      return;
+    }
+
+    setMesAtual((mes) => mes + 1);
+  }
+
+  const nomesMeses = [
+    'Janeiro',
+    'Fevereiro',
+    'Março',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro',
+  ];
+
+  // Gera todas as células necessárias para o calendário
+  const diasCalendario = useMemo(() => {
+    const resultado: DiaCalendario[] = [];
+
+    const primeiroDiaSemana = new Date(
+      anoAtual,
+      mesAtual,
+      1
+    ).getDay();
+
+    const quantidadeDias = new Date(
+      anoAtual,
+      mesAtual + 1,
+      0
+    ).getDate();
+
+    function criarDia(
+      ano: number,
+      mes: number,
+      dia: number,
+      foraDoMes: boolean
+    ): DiaCalendario {
+      const data =
+        `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+
+      const eventos: EventoCalendario[] = [];
+
+      // Plantão correspondente à data
+      const plantoesDoDia = plantoes.filter(
+        (plantao) => plantao.data === data
+      );
+
+      plantoesDoDia.forEach((plantao) => {
+        eventos.push({
+          texto: plantao.turno,
+          tipo: 'plantao',
+        });
+      });
+
+      // Folgas correspondentes à data
+      const folgasDoDia = folgas.filter(
+        (folga) => folga.data === data
+      );
+
+      folgasDoDia.forEach((folga) => {
+        // Solicitação recusada não precisa aparecer
+        if (folga.status === 'RECUSADO') {
+          return;
+        }
+
+        eventos.push({
+          texto:
+            folga.status === 'PENDENTE'
+              ? 'Folga pend.'
+              : 'Folga',
+          tipo:
+            folga.status === 'PENDENTE'
+              ? 'pendente'
+              : 'folga',
+        });
+      });
+
+      return {
+        dia,
+        data,
+        foraDoMes,
+        eventos,
+      };
+    }
+
+    // Dias do mês anterior
+    for (let i = primeiroDiaSemana; i > 0; i--) {
+      const data = new Date(
+        anoAtual,
+        mesAtual,
+        1 - i
+      );
+
+      resultado.push(
+        criarDia(
+          data.getFullYear(),
+          data.getMonth(),
+          data.getDate(),
+          true
+        )
+      );
+    }
+
+    // Dias do mês atual
+    for (let dia = 1; dia <= quantidadeDias; dia++) {
+      resultado.push(
+        criarDia(
+          anoAtual,
+          mesAtual,
+          dia,
+          false
+        )
+      );
+    }
+
+    // Completa o calendário até 42 células
+    let proximoDia = 1;
+
+    while (resultado.length < 42) {
+      const data = new Date(
+        anoAtual,
+        mesAtual + 1,
+        proximoDia
+      );
+
+      resultado.push(
+        criarDia(
+          data.getFullYear(),
+          data.getMonth(),
+          data.getDate(),
+          true
+        )
+      );
+
+      proximoDia++;
+    }
+
+    return resultado;
+  }, [anoAtual, mesAtual, plantoes, folgas]);
 
   return (
     <View style={styles.container}>
-      {/* Cabeçalho */}
       <View style={styles.header}>
-        <Pressable onPress={() => setMenuAberto(true)}>
+        <Pressable style={styles.menuButton} onPress={() => setMenuAberto(true)}>
           <Text style={styles.menuIcon}>☰</Text>
         </Pressable>
 
-        <Text style={styles.title}>Minha escala</Text>
+        <View>
+          <Text style={styles.title}>Minha escala</Text>
+          <Text style={styles.subtitle}>Acompanhe seus plantões e folgas</Text>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.month}>Setembro 2026</Text>
+        <View style={styles.monthRow}>
+          <Pressable
+            style={styles.monthButton}
+            onPress={mesAnterior}
+          >
+            <Text style={styles.monthButtonText}>‹</Text>
+          </Pressable>
 
-        {/* Dias da semana */}
-        <View style={styles.weekRow}>
-          {semana.map((dia, index) => (
-            <View style={styles.weekCell} key={index}>
-              <Text style={styles.weekText}>{dia}</Text>
-            </View>
-          ))}
+          <View style={styles.monthInfo}>
+            <Text style={styles.month}>
+              {nomesMeses[mesAtual]} {anoAtual}
+            </Text>
+
+            <Text style={styles.monthSubtitle}>
+              {plantoes.length}{' '}
+              {plantoes.length === 1
+                ? 'plantão'
+                : 'plantões'}
+            </Text>
+          </View>
+
+          <Pressable
+            style={styles.monthButton}
+            onPress={proximoMes}
+          >
+            <Text style={styles.monthButtonText}>›</Text>
+          </Pressable>
         </View>
 
-        {/* Calendário */}
-        <View style={styles.calendar}>
-          {dias.map((item, index) => (
-            <View
-              key={index}
-              style={[
-                styles.dayCell,
-                item.foraDoMes && styles.outsideDay,
-              ]}
-            >
-              <Text
+        {carregando && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator
+              color={COLORS.primary}
+            />
+
+            <Text style={styles.loadingText}>
+              Carregando escala...
+            </Text>
+          </View>
+        )}
+
+        {erro !== '' && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorTitle}>
+              Não foi possível carregar a escala
+            </Text>
+
+            <Text style={styles.errorText}>
+              {erro}
+            </Text>
+
+            <Pressable onPress={carregarEscala}>
+              <Text style={styles.retryText}>
+                Tentar novamente
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        <View style={styles.calendarCard}>
+          <View style={styles.weekRow}>
+            {semana.map((dia, index) => (
+              <View style={styles.weekCell} key={index}>
+                <Text style={styles.weekText}>{dia}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.calendar}>
+            {diasCalendario.map((item, index) => (
+              <View
+                key={`${item.data}-${index}`}
                 style={[
-                  styles.dayNumber,
-                  item.foraDoMes && styles.outsideText,
+                  styles.dayCell,
+                  item.foraDoMes && styles.outsideDay,
                 ]}
               >
-                {item.dia}
-              </Text>
-
-              {item.evento && (
-                <View
+                <Text
                   style={[
-                    styles.event,
-                    item.tipo === 'folga'
-                      ? styles.folga
-                      : styles.plantao,
+                    styles.dayNumber,
+                    item.foraDoMes && styles.outsideText,
                   ]}
                 >
-                  <Text style={styles.eventText}>
-                    {item.evento}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ))}
+                  {item.dia}
+                </Text>
+
+                {!item.foraDoMes &&
+                  item.eventos.slice(0, 2).map((evento, eventoIndex) => (
+                    <View
+                      key={eventoIndex}
+                      style={[
+                        styles.event,
+
+                        evento.tipo === 'plantao' &&
+                        styles.plantao,
+
+                        evento.tipo === 'folga' &&
+                        styles.folga,
+
+                        evento.tipo === 'pendente' &&
+                        styles.pendente,
+                      ]}
+                    >
+                      <Text style={styles.eventText}>
+                        {evento.texto}
+                      </Text>
+                    </View>
+                  ))}
+              </View>
+            ))}
+          </View>
         </View>
 
-        {/* Legenda */}
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendColor, styles.plantao]} />
-            <Text>Plantão</Text>
+            <Text style={styles.legendText}>Plantão</Text>
           </View>
 
           <View style={styles.legendItem}>
             <View style={[styles.legendColor, styles.folga]} />
-            <Text>Folga</Text>
+            <Text style={styles.legendText}>Folga</Text>
+          </View>
+          <View style={styles.legendItem}>
+
+            <View
+              style={[styles.legendColor, styles.pendente]} />
+            <Text style={styles.legendText}>Pendente</Text>
           </View>
         </View>
       </ScrollView>
 
-      {/* Menu lateral */}
       {menuAberto && (
         <>
-          <Pressable
-            style={styles.overlay}
-            onPress={() => setMenuAberto(false)}
-          />
+          <Pressable style={styles.overlay} onPress={() => setMenuAberto(false)} />
 
           <View style={styles.sidebar}>
             <View>
               <View style={styles.sidebarHeader}>
-                <Text style={styles.sidebarTitle}>
-                  Gestão de Plantões
-                </Text>
+                <View>
+                  <Text style={styles.sidebarBrand}>
+                    Escala<Text style={styles.sidebarBrandBlue}>Certa</Text>
+                  </Text>
+                  <Text style={styles.sidebarSubtitle}>Gestão de Plantões</Text>
+                </View>
 
                 <Pressable onPress={() => setMenuAberto(false)}>
                   <Text style={styles.closeButton}>✕</Text>
@@ -158,30 +437,15 @@ export default function Escala() {
               </View>
 
               <View style={styles.menuGroup}>
-                <MenuItem
-                  texto="Dashboard"
-                  rota="/dashboard"
-                />
-
-                <MenuItem
-                  texto="Minha escala"
-                  rota="/escala"
-                />
-
-                <MenuItem
-                  texto="Solicitar troca"
-                  rota="/trocas"
-                />
-
-                <MenuItem
-                  texto="Solicitar folga"
-                  rota="/folgas"
-                />
+                <MenuItem texto="Dashboard" rota="/dashboard" />
+                <MenuItem texto="Minha escala" rota="/escala" ativo />
+                <MenuItem texto="Solicitar troca" rota="/trocas" />
+                <MenuItem texto="Solicitar folga" rota="/folgas" />
               </View>
             </View>
 
             <Pressable onPress={() => router.replace('/')}>
-              <Text style={styles.menuItem}>Sair</Text>
+              <Text style={styles.logout}>Sair</Text>
             </Pressable>
           </View>
         </>
@@ -190,181 +454,169 @@ export default function Escala() {
   );
 }
 
-// Componente reutilizável para as opções do menu
 function MenuItem({
   texto,
   rota,
+  ativo = false,
 }: {
   texto: string;
-  rota: '/dashboard' | '/escala' | '/folgas' | '/trocas';
+  rota: Href;
+  ativo?: boolean;
 }) {
   return (
-    <Pressable onPress={() => router.push(rota)}>
-      <Text style={styles.menuItem}>{texto}</Text>
+    <Pressable
+      style={[styles.menuItemButton, ativo && styles.menuItemActive]}
+      onPress={() => router.push(rota)}
+    >
+      <Text style={[styles.menuItem, ativo && styles.menuItemActiveText]}>{texto}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    height: 90,
-    paddingTop: 38,
-    paddingHorizontal: 20,
+    minHeight: 92, paddingTop: 38, paddingHorizontal: 20, paddingBottom: 14,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card,
+    gap: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  menuButton: {
+    width: 42, height: 42, borderRadius: 10, backgroundColor: COLORS.muted,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  menuIcon: { fontSize: 24, color: COLORS.text },
+  title: { fontSize: 21, fontWeight: '700', color: COLORS.text },
+  subtitle: { marginTop: 2, fontSize: 12, color: COLORS.textSecondary },
+  content: { padding: 16, paddingBottom: 36 },
+  monthRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    gap: 18,
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
 
-  menuIcon: {
+  monthInfo: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  monthButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  monthButtonText: {
     fontSize: 28,
+    color: COLORS.primary,
+    lineHeight: 30,
   },
-
-  title: {
-    fontSize: 22,
-    fontWeight: '600',
-  },
-
-  content: {
-    padding: 16,
-  },
-
   month: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 18,
-  },
-
-  weekRow: {
-    flexDirection: 'row',
-    backgroundColor: '#777777',
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-  },
-
-  weekCell: {
-    width: '14.2857%',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-
-  weekText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-
-  calendar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: '#FFFFFF',
-  },
-
-  dayCell: {
-    width: '14.2857%',
-    minHeight: 72,
-    borderWidth: 0.4,
-    borderColor: '#CCCCCC',
-    padding: 5,
-  },
-
-  outsideDay: {
-    backgroundColor: '#EEEEEE',
-  },
-
-  dayNumber: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-
-  outsideText: {
-    color: '#AAAAAA',
-  },
-
-  event: {
-    marginTop: 7,
-    paddingVertical: 4,
-    paddingHorizontal: 3,
-    borderRadius: 4,
-  },
-
-  plantao: {
-    backgroundColor: '#18B663',
-  },
-
-  folga: {
-    backgroundColor: '#3B82F6',
-  },
-
-  eventText: {
-    fontSize: 9,
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-
-  legend: {
-    flexDirection: 'row',
-    gap: 22,
-    marginTop: 20,
-  },
-
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-
-  legendColor: {
-    width: 14,
-    height: 14,
-    borderRadius: 3,
-  },
-
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    zIndex: 1,
-  },
-
-  sidebar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: '78%',
-    maxWidth: 310,
-    backgroundColor: '#FFFFFF',
-    paddingTop: 50,
-    paddingHorizontal: 24,
-    paddingBottom: 30,
-    justifyContent: 'space-between',
-    zIndex: 2,
-  },
-
-  sidebarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-
-  sidebarTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  monthSubtitle: { marginTop: 3, fontSize: 12, color: COLORS.textSecondary },
+  statusBadge: {
+    backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 999,
+  },
+  statusBadgeText: { color: COLORS.primary, fontSize: 12, fontWeight: '700' },
+  calendarCard: {
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 14,
+    overflow: 'hidden', backgroundColor: COLORS.card,
+  },
+  weekRow: { flexDirection: 'row', backgroundColor: COLORS.primaryDark },
+  weekCell: { width: '14.2857%', alignItems: 'center', paddingVertical: 10 },
+  weekText: { color: '#FFFFFF', fontWeight: '700', fontSize: 12 },
+  calendar: { flexDirection: 'row', flexWrap: 'wrap' },
+  dayCell: {
+    width: '14.2857%', minHeight: 72, borderWidth: 0.5,
+    borderColor: COLORS.border, padding: 5, backgroundColor: COLORS.card,
+  },
+  outsideDay: { backgroundColor: COLORS.muted },
+  dayNumber: { fontSize: 12, fontWeight: '600', color: COLORS.text },
+  outsideText: { color: '#94A3B8' },
+  event: {
+    marginTop: 7, paddingVertical: 4, paddingHorizontal: 2,
+    borderRadius: 5,
+  },
+  plantao: { backgroundColor: COLORS.primary },
+  folga: { backgroundColor: COLORS.success },
+  eventText: { fontSize: 8, color: '#FFFFFF', textAlign: 'center', fontWeight: '700' },
+  legend: {
+    flexDirection: 'row', gap: 20, marginTop: 16,
+    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 12, padding: 14,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  legendColor: { width: 12, height: 12, borderRadius: 4 },
+  legendText: { color: COLORS.textSecondary, fontSize: 13 },
+  overlay: {
+    ...StyleSheet.absoluteFill, backgroundColor: 'rgba(15, 23, 42, 0.40)', zIndex: 1,
+  },
+  sidebar: {
+    position: 'absolute', left: 0, top: 0, bottom: 0, width: '80%', maxWidth: 310,
+    backgroundColor: COLORS.card, paddingTop: 54, paddingHorizontal: 22,
+    paddingBottom: 28, justifyContent: 'space-between', zIndex: 2,
+  },
+  sidebarHeader: { flexDirection: 'row', justifyContent: 'space-between' },
+  sidebarBrand: { fontSize: 22, fontWeight: '800', color: COLORS.text },
+  sidebarBrandBlue: { color: COLORS.primary },
+  sidebarSubtitle: { marginTop: 3, color: COLORS.textSecondary, fontSize: 12 },
+  closeButton: { fontSize: 22, color: COLORS.textSecondary },
+  menuGroup: { marginTop: 38, gap: 6 },
+  menuItemButton: { borderRadius: 10 },
+  menuItemActive: { backgroundColor: '#EFF6FF' },
+  menuItem: { fontSize: 15, color: COLORS.text, paddingVertical: 12, paddingHorizontal: 12 },
+  menuItemActiveText: { color: COLORS.primary, fontWeight: '700' },
+  logout: { fontSize: 15, fontWeight: '700', color: COLORS.error, paddingVertical: 12, paddingHorizontal: 12 },
+  pendente: {
+    backgroundColor: COLORS.warning,
   },
 
-  closeButton: {
-    fontSize: 22,
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
   },
 
-  menuGroup: {
-    marginTop: 45,
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
   },
 
-  menuItem: {
-    fontSize: 16,
-    marginBottom: 26,
+  errorBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+
+  errorTitle: {
+    color: COLORS.error,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  errorText: {
+    color: '#991B1B',
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  retryText: {
+    color: COLORS.primary,
+    fontWeight: '700',
+    fontSize: 13,
+    marginTop: 10,
   },
 });

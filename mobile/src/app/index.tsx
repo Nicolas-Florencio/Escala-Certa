@@ -1,4 +1,6 @@
+import { apiRequest } from '@/services/api';
 import { router } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { useState } from 'react';
 import {
   Pressable,
@@ -8,151 +10,315 @@ import {
   View,
 } from 'react-native';
 
+import { COLORS } from '@/constants/colors';
+
 export default function Login() {
-  // Estados dos campos de e-mail e senha
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-
-  // Estado responsável por exibir a mensagem de erro
   const [erro, setErro] = useState(false);
 
-  // Função responsável por validar o login
-  function entrar() {
-    // Login temporário para teste
-    if (email === 'admin' && senha === '1234') {
-      // Remove mensagem de erro caso esteja aparecendo
+  async function entrar() {
+    try {
       setErro(false);
 
-      // Função para redirecionamento à dashboard
+      console.log(
+        'Email enviado:',
+        JSON.stringify(email)
+      );
+
+      console.log(
+        'Senha enviada:',
+        JSON.stringify(senha)
+      );
+
+      const data = await apiRequest('/auth/login', {
+        method: 'POST',
+
+        body: JSON.stringify({
+          email: email.trim(),
+          senha,
+        }),
+      });
+
+      await SecureStore.setItemAsync(
+        'token',
+        data.token
+      );
+
+      await SecureStore.setItemAsync(
+        'usuario',
+        JSON.stringify(data.usuario)
+      );
+
+      console.log(
+        'Usuário autenticado:',
+        data.usuario
+      );
+
       router.replace('/dashboard');
 
-      return;
-    }
+    } catch (error) {
+      console.log(
+        'Erro no login:',
+        error instanceof Error
+          ? error.message
+          : error
+      );
 
-    // Exibe mensagem caso as credenciais estejam incorretas
-    setErro(true);
+      setErro(true);
+    }
   }
 
+  /*
+   async function entrar() {
+  try {
+    // Remove um possível erro anterior
+    setErro(false);
+
+    // Envia as credenciais para a API
+    const data = await apiRequest('/auth/login', {
+      method: 'POST',
+
+      body: JSON.stringify({
+        email,
+        senha,
+      }),
+    });
+
+    // Salva o JWT de forma segura
+    await SecureStore.setItemAsync(
+      'token',
+      data.token
+    );
+
+    // Salva temporariamente os dados do usuário
+    await SecureStore.setItemAsync(
+      'usuario',
+      JSON.stringify(data.usuario)
+    );
+
+    console.log('Usuário autenticado:', data.usuario);
+
+    // Redireciona para a dashboard
+    router.replace('/dashboard');
+
+  } catch (error) {
+    console.log(
+      'Erro no login:',
+      error instanceof Error
+        ? error.message
+        : error
+    );
+
+    setErro(true);
+  }
+}
+*/
   return (
-    // Container principal da tela
     <View style={styles.container}>
-      {/* Área central do formulário de login */}
       <View style={styles.loginBox}>
-        {/* Título da tela */}
-        <Text style={styles.title}>Gestão de Plantões</Text>
-
-        {/* Texto explicativo */}
-        <Text style={styles.subtitle}>
-          Entre com suas credenciais para acessar o sistema.
-        </Text>
-
-        {/* Campo de e-mail */}
-        <TextInput
-          style={styles.input}
-          placeholder="E-mail (admin@email.com)"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-
-        {/* Campo de senha */}
-        <TextInput
-          style={styles.input}
-          placeholder="Senha (1234)"
-          value={senha}
-          onChangeText={setSenha}
-          secureTextEntry
-        />
-
-        {/* Botão para realizar o login */}
-        <Pressable style={styles.button} onPress={entrar}>
-          <Text style={styles.buttonText}>Entrar</Text>
-        </Pressable>
-
-        {/* Mensagem exibida caso haja erro */}
-        {erro && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorTitle}>Credenciais inválidas</Text>
-
-            <Text style={styles.errorText}>
-              E-mail ou senha incorretos. Verifique e tente novamente.
-            </Text>
+        <View style={styles.brandArea}>
+          <View style={styles.logoMark}>
+            <Text style={styles.logoText}>EC</Text>
           </View>
-        )}
 
-        {/* Botão de recuperação de senha */}
-        <Pressable>
-          <Text style={styles.forgotPassword}>Esqueci minha senha</Text>
-        </Pressable>
+          <Text style={styles.brandName}>
+            Escala<Text style={styles.brandHighlight}>Certa</Text>
+          </Text>
+
+          <Text style={styles.subtitle}>
+            Organização de plantões de forma simples e eficiente.
+          </Text>
+        </View>
+
+        <View style={styles.formCard}>
+          <Text style={styles.formTitle}>Acesse sua conta</Text>
+          <Text style={styles.formSubtitle}>
+            Entre com suas credenciais para acessar o sistema.
+          </Text>
+
+          <Text style={styles.label}>E-mail</Text>
+          <TextInput
+            style={[styles.input, erro && styles.inputError]}
+            placeholder="admin@email.com"
+            placeholderTextColor={COLORS.textSecondary}
+            value={email}
+            onChangeText={(value) => {
+              setEmail(value);
+              if (erro) setErro(false);
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.label}>Senha</Text>
+          <TextInput
+            style={[styles.input, erro && styles.inputError]}
+            placeholder="Digite sua senha"
+            placeholderTextColor={COLORS.textSecondary}
+            value={senha}
+            onChangeText={(value) => {
+              setSenha(value);
+              if (erro) setErro(false);
+            }}
+            secureTextEntry
+          />
+
+          {erro && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorTitle}>Credenciais inválidas</Text>
+              <Text style={styles.errorText}>
+                E-mail ou senha incorretos. Verifique e tente novamente.
+              </Text>
+            </View>
+          )}
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={entrar}
+          >
+            <Text style={styles.buttonText}>Entrar</Text>
+          </Pressable>
+
+          <Pressable>
+            <Text style={styles.forgotPassword}>Esqueci minha senha</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
 }
 
-// Estilos da tela de login
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 24,
   },
-
   loginBox: {
     width: '100%',
     maxWidth: 420,
+    alignSelf: 'center',
   },
-
-  title: {
+  brandArea: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  logoMark: {
+    width: 58,
+    height: 58,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  logoText: {
+    color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 12,
+    fontWeight: '800',
   },
-
+  brandName: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  brandHighlight: {
+    color: COLORS.primary,
+  },
   subtitle: {
+    marginTop: 8,
     fontSize: 14,
-    marginBottom: 24,
+    lineHeight: 20,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    maxWidth: 280,
   },
-
+  formCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3,
+  },
+  formTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  formSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 5,
+    marginBottom: 22,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 7,
+  },
   input: {
     height: 52,
-    backgroundColor: '#E5E5E5',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 6,
-  },
-
-  button: {
-    height: 52,
-    backgroundColor: '#D9D9D9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-
-  buttonText: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    color: COLORS.text,
     fontSize: 15,
-    fontWeight: '500',
   },
-
+  inputError: {
+    borderColor: COLORS.error,
+  },
   errorContainer: {
-    marginTop: 16,
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    marginBottom: 16,
   },
-
   errorTitle: {
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-
-  errorText: {
+    color: COLORS.error,
+    fontWeight: '700',
     fontSize: 13,
   },
-
+  errorText: {
+    color: '#991B1B',
+    fontSize: 12,
+    marginTop: 3,
+  },
+  button: {
+    height: 52,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonPressed: {
+    backgroundColor: COLORS.primaryDark,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
   forgotPassword: {
+    color: COLORS.primary,
     textAlign: 'center',
-    marginTop: 20,
     fontSize: 14,
+    fontWeight: '600',
+    marginTop: 18,
   },
 });
